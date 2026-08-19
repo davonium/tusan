@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tusan! — thousand separators rendered by the font</title>
+<style>
+  @font-face {
+    font-family: 'Roboto Grouped';
+    src: url('fonts/RobotoGrouped-Regular.woff2') format('woff2');
+    font-display: block;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono Grouped';
+    src: url('fonts/JBMonoGrouped-Regular.woff2') format('woff2');
+    font-display: block;
+  }
+  :root { color-scheme: light dark; }
+  body {
+    font: 15px/1.55 system-ui, sans-serif;
+    max-width: 700px; margin: 0 auto; padding: 40px 18px 80px;
+    color: #1f2328; background: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6edf3; background: #0d1117; }
+    section { background: #161b22 !important; border-color: #30363d !important; }
+    input.big, select { background: #0d1117 !important; border-color: #30363d !important; color: #e6edf3 !important; }
+    .val { background: #0d1117 !important; }
+  }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .sub { color: #656d76; margin: 0 0 26px; max-width: 56ch; }
+  section {
+    background: #fff; border: 1px solid #d0d7de; border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 16px;
+  }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em;
+       color: #0969da; margin: 0 0 14px; }
+  .controls { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .controls label { display: flex; flex-direction: column; gap: 4px;
+                    font-size: 12px; color: #656d76; }
+  select { font: inherit; padding: 6px 10px; border: 1px solid #d0d7de;
+           border-radius: 8px; background: #fff; }
+  input.big {
+    width: 100%; box-sizing: border-box;
+    font-family: 'Roboto Grouped', system-ui, sans-serif;
+    font-variant-ligatures: contextual;
+    font-size: 32px; text-align: right;
+    padding: 12px 16px; border: 1.5px solid #d0d7de; border-radius: 10px;
+    background: #fff; color: inherit;
+  }
+  input.big:focus-visible { outline: none; border-color: #0969da;
+    box-shadow: 0 0 0 3px rgba(9,105,218,.25); }
+  .val { font: 13px/1.5 ui-monospace, monospace; background: #f6f8fa;
+         border-radius: 8px; padding: 8px 12px; margin-top: 10px;
+         color: #656d76; word-break: break-all; }
+  .val b { color: inherit; }
+  .samples div { display: flex; align-items: baseline; gap: 16px;
+                 flex-wrap: wrap; margin-bottom: 8px; }
+  .samples .n { font-variant-ligatures: contextual; font-size: 26px; }
+  .samples .l { font: 12px/1.4 ui-monospace, monospace; color: #656d76; }
+  ul { padding-left: 18px; color: #656d76; font-size: 14px; }
+  li { margin-bottom: 5px; }
+  footer { font-size: 13px; color: #656d76; margin-top: 26px; }
+  footer a { color: #0969da; }
+</style>
+</head>
+<body>
+  <h1>Tusan! Thousand separators, rendered by the font</h1>
+  <p class="sub">The input below contains only plain digits — no separator
+     characters. An OpenType <code>calt</code> rule in a 5&nbsp;kB patched
+     font draws the grouping. Caret, selection, copy and undo are 100%
+     native: there is nothing to skip over.</p>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="controls">
+      <label>Font
+        <select id="fontSel">
+          <option value="'Roboto Grouped', system-ui, sans-serif">Roboto Grouped</option>
+          <option value="'JetBrains Mono Grouped', ui-monospace, monospace">JetBrains Mono Grouped</option>
+        </select>
+      </label>
+      <label>Locale (separator style + decimal follow together)
+        <select id="localeSel">
+          <option value="">browser default</option>
+          <option value="sv-SE">sv-SE · space + comma decimal</option>
+          <option value="en-US">en-US · comma + period decimal</option>
+          <option value="de-DE">de-DE · period + comma decimal</option>
+          <option value="de-CH">de-CH · apostrophe + period decimal</option>
+        </select>
+      </label>
+    </div>
+    <input id="demo" class="big" value="1234567.89" inputmode="decimal"
+           autocomplete="off" spellcheck="false" aria-label="Demo number input">
+    <div class="val">input.value = "<b id="raw">1234567.89</b>" — try
+      selecting everything and copying: you get plain digits.</div>
+    <ul>
+      <li>Arrow keys: one step per digit — separators don't exist as positions.</li>
+      <li>It is impossible to select a separator on its own.</li>
+      <li>Backspace next to a group boundary always deletes a real digit.</li>
+      <li>Ctrl/Cmd+Z: the browser's own undo stack, untouched.</li>
+      <li>This demo has no input filtering on purpose — the page's only
+          JavaScript powers the two dropdowns and the readout.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Static samples (plain digit strings)</h2>
+    <div class="samples" id="samples">
+      <div><span class="n s-rob">1234567.89</span><span class="l">Roboto · default</span></div>
+      <div><span class="n s-rob" style='font-feature-settings:"ss01" 1'>1234567.89</span><span class="l">ss01 · comma</span></div>
+      <div><span class="n s-rob" style='font-feature-settings:"ss02" 1'>-987654321</span><span class="l">ss02 · period</span></div>
+      <div><span class="n s-rob" style='font-feature-settings:"ss03" 1'>1234567.89</span><span class="l">ss03 · apostrophe</span></div>
+      <div><span class="n s-rob">1000.12345</span><span class="l">decimals are never grouped</span></div>
+      <div><span class="n s-rob">123456789012345678901234</span><span class="l">full grouping up to 24 digits</span></div>
+      <div><span class="n s-jbm">1234567.89</span><span class="l">JetBrains Mono · default</span></div>
+      <div><span class="n s-rob" style="letter-spacing:2px">1234567.89</span><span class="l">letter-spacing canary — known to BREAK grouping in some browsers; if this row is ungrouped, that's why letter-spacing is forbidden on the field</span></div>
+    </div>
+  </section>
+
+  <footer>
+    Fonts patched from <a href="https://fonts.google.com/specimen/Roboto">Roboto</a>
+    and <a href="https://www.jetbrains.com/lp/mono/">JetBrains Mono</a> (both SIL OFL;
+    modified versions renamed as the license requires). Prior art for font-based digit
+    grouping in terminals: <a href="https://blog.janestreet.com/commas-in-big-numbers-everywhere/">Numderline</a>.
+    Source &amp; font patcher: <a href="https://github.com/davonium/tusan">GitHub repo</a>.
+  </footer>
+
+<script>
+  const demo = document.getElementById('demo');
+  const raw = document.getElementById('raw');
+  const fontSel = document.getElementById('fontSel');
+  const localeSel = document.getElementById('localeSel');
+
+  // Decimaltecken och avgränsarstil härleds ur SAMMA Intl-anrop, så
+  // omöjliga par (punktstil + punktdecimal) inte kan uppstå.
+  function localeInfo(locale) {
+    const parts = new Intl.NumberFormat(locale || undefined).formatToParts(1234567.8);
+    const group = (parts.find(p => p.type === 'group') || {}).value || '\u00a0';
+    const decimal = (parts.find(p => p.type === 'decimal') || {}).value || '.';
+    const features = group === ',' ? '"calt" 1, "ss01" 1'
+                   : group === '.' ? '"calt" 1, "ss02" 1'
+                   : (group === '\u2019' || group === "'") ? '"calt" 1, "ss03" 1'
+                   : '"calt" 1';
+    return { decimal, features };
+  }
+
+  let decimal = '.';
+  function apply() {
+    const info = localeInfo(localeSel.value);
+    demo.value = demo.value.replace(decimal, info.decimal);
+    decimal = info.decimal;
+    demo.style.fontFamily = fontSel.value;
+    demo.style.fontFeatureSettings = info.features;
+    raw.textContent = demo.value;
+  }
+  fontSel.addEventListener('change', apply);
+  localeSel.addEventListener('change', apply);
+  apply();
+
+  // Blink-workaround: nudge om-shaping på varje input.
+  demo.addEventListener('input', () => {
+    demo.style.fontVariantLigatures = 'none';
+    void demo.offsetWidth;
+    demo.style.fontVariantLigatures = 'contextual';
+    raw.textContent = demo.value;
+  });
+</script>
+<style>
+  .s-rob { font-family: 'Roboto Grouped', system-ui, sans-serif; }
+  .s-jbm { font-family: 'JetBrains Mono Grouped', ui-monospace, monospace; }
+</style>
+</body>
+</html>
