@@ -199,13 +199,28 @@ export const GroupedNumberInput = forwardRef<
     [decimal, tryInsert],
   );
 
+  // The last value that passed the pattern, for an uncontrolled field to fall
+  // back to. A controlled one falls back to `raw` on its own.
+  const lastValid = useRef(toRaw(defaultValue, decimal));
+
+  // beforeinput filters typing and pasting, but some changes never pass
+  // through it: autofill, some mobile keyboards, synthetic input. Those are
+  // checked here, and a change the pattern rejects is undone.
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (isControlled) setRaw(e.currentTarget.value);
-      else forceReshape(e.currentTarget);
-      emit(e.currentTarget);
+      const el = e.currentTarget;
+      if (!pattern.test(el.value)) {
+        if (!isControlled) el.value = lastValid.current;
+        return;
+      }
+      if (isControlled) setRaw(el.value);
+      else {
+        lastValid.current = el.value;
+        forceReshape(el);
+      }
+      emit(el);
     },
-    [emit, isControlled],
+    [emit, isControlled, pattern],
   );
 
   return (

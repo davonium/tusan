@@ -1,6 +1,6 @@
 {
   "name": "tusan",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Tusan! React number input where thousand separators are rendered by an OpenType font - the value stays a plain digit string, and caret/selection/copy/undo are fully native.",
   "license": "MIT",
   "type": "module",

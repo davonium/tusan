@@ -184,3 +184,19 @@ test("typing goes through the filter: digits pass, letters are rejected", () => 
   press(input, "a");
   assert.equal(input.value, "123");
 });
+
+test("a change that skips beforeinput is still checked against the pattern", () => {
+  let calls = 0;
+  const { input, rerender } = render({ locale: "sv-SE", value: "1,5" });
+  rerender({ locale: "sv-SE", value: "1,5", onValueChange: () => calls++ });
+  type(input, ",5");
+  assert.equal(input.value, "1,5");
+  assert.equal(calls, 0);
+});
+
+test("uncontrolled: a change that skips beforeinput is undone when invalid", () => {
+  const { input } = render({ locale: "sv-SE", defaultValue: 12, allowNegative: false });
+  type(input, "5");
+  type(input, "x");
+  assert.equal(input.value, "125");
+});
