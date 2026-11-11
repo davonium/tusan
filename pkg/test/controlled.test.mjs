@@ -6,9 +6,24 @@ let React, act, createRoot, GroupedNumberInput;
 
 before(async () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
-  globalThis.window = window;
-  globalThis.document = window.document;
-  globalThis.HTMLElement = window.HTMLElement;
+  // Node ships its own Event and, from v21, navigator. Code under test must
+  // see jsdom's, or jsdom rejects the events and older Node has no navigator.
+  for (const key of [
+    "window",
+    "document",
+    "navigator",
+    "Event",
+    "KeyboardEvent",
+    "InputEvent",
+    "HTMLElement",
+    "HTMLInputElement",
+  ]) {
+    Object.defineProperty(globalThis, key, {
+      value: key === "window" ? window : window[key],
+      configurable: true,
+      writable: true,
+    });
+  }
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   React = (await import("react")).default;
   ({ act } = await import("react"));
