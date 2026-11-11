@@ -2,7 +2,10 @@ import React, {
   forwardRef,
   type CSSProperties,
   useCallback,
+  useLayoutEffect,
   useMemo,
+  useRef,
+  useState,
   type InputHTMLAttributes,
 } from "react";
 import { forceReshape } from "./domUtils";
@@ -11,6 +14,8 @@ import {
   featureSettingsFor,
   getLocaleNumberInfo,
   parseRaw,
+  rawShowsValue,
+  toRaw,
   type SeparatorStyle,
 } from "./utils";
 
@@ -34,6 +39,13 @@ export interface GroupedNumberInputProps
   locale?: string;
   /** Override the font-rendered separator style (normally derived from locale). */
   separatorStyle?: SeparatorStyle;
+  /**
+   * Makes the field controlled. A number is shown with the locale's decimal
+   * char and only has to match what is typed numerically, so "12," survives
+   * a parent that stores 12. A string is shown exactly as given. `null`
+   * clears the field. Leave undefined for an uncontrolled field.
+   */
+  value?: string | number | null;
   defaultValue?: string | number;
   /** Called on every change with the raw string and parsed number. */
   onValueChange?: (value: GroupedNumberInputValue) => void;
@@ -67,6 +79,7 @@ export const GroupedNumberInput = forwardRef<
   {
     locale,
     separatorStyle,
+    value,
     defaultValue = "",
     onValueChange,
     maxDecimals = null,
@@ -106,6 +119,31 @@ export const GroupedNumberInput = forwardRef<
           : `(?:${d}\\d{0,${maxDecimals}})?`;
     return new RegExp(`^${allowNegative ? "-?" : ""}\\d*${frac}$`);
   }, [decimal, maxDecimals, allowNegative]);
+
+  const [raw, setRaw] = useState(() =>
+    toRaw(value === undefined ? defaultValue : value, decimal),
+  );
+  if (value !== undefined && !rawShowsValue(raw, value, decimal)) {
+    setRaw(toRaw(value, decimal));
+  }
+
+  const innerRef = useRef<HTMLInputElement | null>(null);
+  const setRefs = useCallback(
+    (el: HTMLInputElement | null) => {
+      innerRef.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref],
+  );
+
+  // Blink can skip re-shaping when the value crosses into "grouping needed"
+  // (empty -> filled, 3 -> 4 digits, a parent rewriting the value). The
+  // transitions are hard to enumerate, so every change gets a nudge: one
+  // synchronous reflow per change is negligible and can never miss a case.
+  useLayoutEffect(() => {
+    if (innerRef.current) forceReshape(innerRef.current);
+  }, [raw, featureSettings]);
 
   const emit = useCallback(
     (el: HTMLInputElement) => {
@@ -156,16 +194,10 @@ export const GroupedNumberInput = forwardRef<
     [decimal, tryInsert],
   );
 
-  // Blink kan hoppa över om-shaping när värdet går från "ingen
-  // gruppering behövs" till "gruppering behövs" (t.ex. tomt -> ifyllt
-  // eller 3 -> 4 siffror). Övergångarna är svåra att räkna upp
-  // uttömmande, så vi nudgar på varje input: en synkron reflow per
-  // tangenttryck är försumbar och kan aldrig missa ett fall.
-  const handleInput = useCallback(
-    (e: React.FormEvent<HTMLInputElement>) => {
-      const el = e.currentTarget;
-      forceReshape(el);
-      emit(el);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setRaw(e.currentTarget.value);
+      emit(e.currentTarget);
     },
     [emit],
   );
@@ -173,15 +205,15 @@ export const GroupedNumberInput = forwardRef<
   return (
     <input
       {...rest}
-      ref={ref}
+      ref={setRefs}
       type="text"
       inputMode="decimal"
       autoComplete="off"
       spellCheck={false}
-      defaultValue={String(defaultValue).replace(".", decimal)}
+      value={raw}
       onBeforeInput={handleBeforeInput}
       onPaste={handlePaste}
-      onInput={handleInput}
+      onChange={handleChange}
       style={{
         fontFamily,
         fontFeatureSettings: featureSettings,

@@ -95,6 +95,14 @@ function parseRaw(raw, decimal) {
   const n = parseFloat(raw.replace(decimal, "."));
   return Number.isFinite(n) ? n : null;
 }
+function toRaw(value, decimal) {
+  if (value == null) return "";
+  return typeof value === "number" ? String(value).replace(".", decimal) : value;
+}
+function rawShowsValue(raw, value, decimal) {
+  if (typeof value === "string") return raw === value;
+  return parseRaw(raw, decimal) === value;
+}
 
 // src/GroupedNumberInput.tsx
 var import_jsx_runtime = require("react/jsx-runtime");
@@ -110,6 +118,7 @@ function insertText(el, text) {
 var GroupedNumberInput = (0, import_react.forwardRef)(function GroupedNumberInput2({
   locale,
   separatorStyle,
+  value,
   defaultValue = "",
   onValueChange,
   maxDecimals = null,
@@ -137,6 +146,24 @@ var GroupedNumberInput = (0, import_react.forwardRef)(function GroupedNumberInpu
     const frac = maxDecimals == null ? `(?:${d}\\d*)?` : maxDecimals === 0 ? "" : `(?:${d}\\d{0,${maxDecimals}})?`;
     return new RegExp(`^${allowNegative ? "-?" : ""}\\d*${frac}$`);
   }, [decimal, maxDecimals, allowNegative]);
+  const [raw, setRaw] = (0, import_react.useState)(
+    () => toRaw(value === void 0 ? defaultValue : value, decimal)
+  );
+  if (value !== void 0 && !rawShowsValue(raw, value, decimal)) {
+    setRaw(toRaw(value, decimal));
+  }
+  const innerRef = (0, import_react.useRef)(null);
+  const setRefs = (0, import_react.useCallback)(
+    (el) => {
+      innerRef.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref]
+  );
+  (0, import_react.useLayoutEffect)(() => {
+    if (innerRef.current) forceReshape(innerRef.current);
+  }, [raw, featureSettings]);
   const emit = (0, import_react.useCallback)(
     (el) => {
       onValueChange?.({ raw: el.value, floatValue: parseRaw(el.value, decimal) });
@@ -182,11 +209,10 @@ var GroupedNumberInput = (0, import_react.forwardRef)(function GroupedNumberInpu
     },
     [decimal, tryInsert]
   );
-  const handleInput = (0, import_react.useCallback)(
+  const handleChange = (0, import_react.useCallback)(
     (e) => {
-      const el = e.currentTarget;
-      forceReshape(el);
-      emit(el);
+      setRaw(e.currentTarget.value);
+      emit(e.currentTarget);
     },
     [emit]
   );
@@ -194,15 +220,15 @@ var GroupedNumberInput = (0, import_react.forwardRef)(function GroupedNumberInpu
     "input",
     {
       ...rest,
-      ref,
+      ref: setRefs,
       type: "text",
       inputMode: "decimal",
       autoComplete: "off",
       spellCheck: false,
-      defaultValue: String(defaultValue).replace(".", decimal),
+      value: raw,
       onBeforeInput: handleBeforeInput,
       onPaste: handlePaste,
-      onInput: handleInput,
+      onChange: handleChange,
       style: {
         fontFamily,
         fontFeatureSettings: featureSettings,

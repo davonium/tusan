@@ -32,6 +32,16 @@ import "tusan/roboto.css"; // 'Roboto Grouped' @font-face
 />
 ```
 
+Controlled, with the parent owning the number:
+
+```tsx
+<GroupedNumberInput
+  locale="sv-SE"
+  value={price}
+  onValueChange={({ floatValue }) => setPrice(floatValue)}
+/>
+```
+
 Renders `1 234 567,89` for sv-SE, `1,234,567.89` for en-US,
 `1'234'567.89` for de-CH — while the value stays `1234567,89` /
 `1234567.89`. If the font fails to load you see ungrouped digits;
@@ -55,6 +65,7 @@ your stack renders placeholders and any other characters seamlessly.
 |---|---|---|---|
 | `locale` | `string` | browser locale | decides decimal char **and** separator style |
 | `separatorStyle` | `"space" \| "comma" \| "period" \| "apostrophe"` | from locale | override the rendered style |
+| `value` | `string \| number \| null` | | controlled; a number only has to match numerically, so `12,` survives a parent storing `12` |
 | `defaultValue` | `string \| number` | `""` | |
 | `onValueChange` | `({ raw, floatValue }) => void` | | `raw` is the exact string; persist it for >15 digits |
 | `maxDecimals` | `number \| null` | `null` | |

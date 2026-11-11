@@ -106,3 +106,28 @@ export function parseRaw(raw: string, decimal: string): number | null {
   const n = parseFloat(raw.replace(decimal, "."));
   return Number.isFinite(n) ? n : null;
 }
+
+/** The raw string a value is shown as, using the given decimal char. */
+export function toRaw(
+  value: string | number | null | undefined,
+  decimal: string,
+): string {
+  if (value == null) return "";
+  return typeof value === "number"
+    ? String(value).replace(".", decimal)
+    : value;
+}
+
+/**
+ * Whether the raw string already shows `value`. A number only has to match
+ * numerically, so a controlled field keeps "12," or "1,50" while the user is
+ * still typing instead of snapping back to "12" or "1,5".
+ */
+export function rawShowsValue(
+  raw: string,
+  value: string | number | null,
+  decimal: string,
+): boolean {
+  if (typeof value === "string") return raw === value;
+  return parseRaw(raw, decimal) === value;
+}
