@@ -53,10 +53,12 @@ interface GroupedNumberInputProps extends Omit<InputHTMLAttributes<HTMLInputElem
     /** Override the font-rendered separator style (normally derived from locale). */
     separatorStyle?: SeparatorStyle;
     /**
-     * Makes the field controlled. A number is shown with the locale's decimal
-     * char and only has to match what is typed numerically, so "12," survives
-     * a parent that stores 12. A string is shown exactly as given. `null`
-     * clears the field. Leave undefined for an uncontrolled field.
+     * Makes the field controlled. "." in a number or string is shown as the
+     * locale's decimal char. A number only has to match what is typed
+     * numerically, so "12," survives a parent that stores 12; a string has to
+     * match exactly. `null` clears the field. Leave undefined for an
+     * uncontrolled field. The parent has to update in `onValueChange` itself:
+     * a value applied later snaps the field back in between.
      */
     value?: string | number | null;
     defaultValue?: string | number;

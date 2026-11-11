@@ -76,3 +76,51 @@ test("uncontrolled: starts from defaultValue and keeps what is typed", () => {
   rerender({ locale: "sv-SE", defaultValue: 1.5 });
   assert.equal(input.value, "1,55");
 });
+
+test("controlled: NaN and Infinity show an empty field instead of looping", () => {
+  const { input, rerender } = render({ locale: "sv-SE", value: NaN });
+  assert.equal(input.value, "");
+  rerender({ locale: "sv-SE", value: Infinity });
+  assert.equal(input.value, "");
+});
+
+test("controlled: a number never shows in exponent notation", () => {
+  const { input, rerender } = render({ locale: "sv-SE", value: 1e21 });
+  assert.equal(input.value, "1000000000000000000000");
+  rerender({ locale: "sv-SE", value: 1e-7 });
+  assert.equal(input.value, "0,0000001");
+});
+
+test("a string value or defaultValue gets the locale's decimal char", () => {
+  assert.equal(render({ locale: "sv-SE", value: "1234.56" }).input.value, "1234,56");
+  assert.equal(
+    render({ locale: "sv-SE", defaultValue: "1234.56" }).input.value,
+    "1234,56",
+  );
+});
+
+test("controlled: the raw string from onValueChange round-trips", () => {
+  const { input, rerender } = render({ locale: "sv-SE", value: "12" });
+  let latest;
+  rerender({ locale: "sv-SE", value: "12", onValueChange: (v) => (latest = v.raw) });
+  type(input, ",50");
+  rerender({ locale: "sv-SE", value: latest });
+  assert.equal(input.value, "12,50");
+});
+
+test("uncontrolled: form.reset() restores defaultValue", () => {
+  const form = document.createElement("form");
+  document.body.append(form);
+  const root = createRoot(form);
+  act(() =>
+    root.render(
+      React.createElement(GroupedNumberInput, { locale: "sv-SE", defaultValue: 100 }),
+    ),
+  );
+  const input = form.querySelector("input");
+  type(input, "5");
+  assert.equal(input.value, "1005");
+  act(() => form.reset());
+  assert.equal(input.value, "100");
+});
+

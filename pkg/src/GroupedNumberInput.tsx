@@ -2,6 +2,8 @@ import React, {
   forwardRef,
   type CSSProperties,
   useCallback,
+  useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -40,10 +42,12 @@ export interface GroupedNumberInputProps
   /** Override the font-rendered separator style (normally derived from locale). */
   separatorStyle?: SeparatorStyle;
   /**
-   * Makes the field controlled. A number is shown with the locale's decimal
-   * char and only has to match what is typed numerically, so "12," survives
-   * a parent that stores 12. A string is shown exactly as given. `null`
-   * clears the field. Leave undefined for an uncontrolled field.
+   * Makes the field controlled. "." in a number or string is shown as the
+   * locale's decimal char. A number only has to match what is typed
+   * numerically, so "12," survives a parent that stores 12; a string has to
+   * match exactly. `null` clears the field. Leave undefined for an
+   * uncontrolled field. The parent has to update in `onValueChange` itself:
+   * a value applied later snaps the field back in between.
    */
   value?: string | number | null;
   defaultValue?: string | number;
@@ -59,6 +63,10 @@ export interface GroupedNumberInputProps
    */
   fontFamily?: string;
 }
+
+// useLayoutEffect warns during server rendering in React 17 and 18.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** Insert text at the caret, preserving the browser's native undo stack. */
 function insertText(el: HTMLInputElement, text: string) {
@@ -120,30 +128,25 @@ export const GroupedNumberInput = forwardRef<
     return new RegExp(`^${allowNegative ? "-?" : ""}\\d*${frac}$`);
   }, [decimal, maxDecimals, allowNegative]);
 
-  const [raw, setRaw] = useState(() =>
-    toRaw(value === undefined ? defaultValue : value, decimal),
-  );
-  if (value !== undefined && !rawShowsValue(raw, value, decimal)) {
+  // Only a controlled field keeps the value in state. An uncontrolled one
+  // leaves it in the DOM, so form.reset() and direct writes to el.value work.
+  const isControlled = value !== undefined;
+  const [raw, setRaw] = useState(() => toRaw(value, decimal));
+  if (isControlled && !rawShowsValue(raw, value, decimal)) {
     setRaw(toRaw(value, decimal));
   }
 
-  const innerRef = useRef<HTMLInputElement | null>(null);
-  const setRefs = useCallback(
-    (el: HTMLInputElement | null) => {
-      innerRef.current = el;
-      if (typeof ref === "function") ref(el);
-      else if (ref) ref.current = el;
-    },
-    [ref],
-  );
+  const innerRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => innerRef.current as HTMLInputElement, []);
 
   // Blink can skip re-shaping when the value crosses into "grouping needed"
-  // (empty -> filled, 3 -> 4 digits, a parent rewriting the value). The
-  // transitions are hard to enumerate, so every change gets a nudge: one
-  // synchronous reflow per change is negligible and can never miss a case.
-  useLayoutEffect(() => {
+  // (empty -> filled, 3 -> 4 digits, a parent rewriting or rejecting the
+  // value). The transitions are hard to enumerate, so every commit and every
+  // input gets a nudge: one synchronous reflow is negligible and can never
+  // miss a case.
+  useIsomorphicLayoutEffect(() => {
     if (innerRef.current) forceReshape(innerRef.current);
-  }, [raw, featureSettings]);
+  });
 
   const emit = useCallback(
     (el: HTMLInputElement) => {
@@ -196,21 +199,24 @@ export const GroupedNumberInput = forwardRef<
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setRaw(e.currentTarget.value);
+      if (isControlled) setRaw(e.currentTarget.value);
+      else forceReshape(e.currentTarget);
       emit(e.currentTarget);
     },
-    [emit],
+    [emit, isControlled],
   );
 
   return (
     <input
       {...rest}
-      ref={setRefs}
+      ref={innerRef}
       type="text"
       inputMode="decimal"
       autoComplete="off"
       spellCheck={false}
-      value={raw}
+      {...(isControlled
+        ? { value: raw }
+        : { defaultValue: toRaw(defaultValue, decimal) })}
       onBeforeInput={handleBeforeInput}
       onPaste={handlePaste}
       onChange={handleChange}
