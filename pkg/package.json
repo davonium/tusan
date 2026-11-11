@@ -52,7 +52,9 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap",
-    "test": "node --test test/*.test.mjs"
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
