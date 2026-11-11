@@ -77,6 +77,22 @@ test("uncontrolled: starts from defaultValue and keeps what is typed", () => {
   assert.equal(input.value, "1,55");
 });
 
+function press(input, ch) {
+  act(() => {
+    input.focus();
+    // jsdom has no TextEvent, so React builds onBeforeInput from keypress,
+    // which reads the legacy `which` that jsdom does not initialise.
+    const event = new window.KeyboardEvent("keypress", {
+      key: ch,
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(event, "which", { value: ch.charCodeAt(0) });
+    Object.defineProperty(event, "charCode", { value: ch.charCodeAt(0) });
+    input.dispatchEvent(event);
+  });
+}
+
 test("controlled: NaN and Infinity show an empty field instead of looping", () => {
   const { input, rerender } = render({ locale: "sv-SE", value: NaN });
   assert.equal(input.value, "");
@@ -124,3 +140,32 @@ test("uncontrolled: form.reset() restores defaultValue", () => {
   assert.equal(input.value, "100");
 });
 
+function renderWithState(initial) {
+  const container = document.createElement("div");
+  document.body.append(container);
+  function Parent() {
+    const [value, setValue] = React.useState(initial);
+    return React.createElement(GroupedNumberInput, {
+      locale: "sv-SE",
+      value,
+      onValueChange: (v) => setValue(v.floatValue),
+    });
+  }
+  act(() => createRoot(container).render(React.createElement(Parent)));
+  return container.querySelector("input");
+}
+
+test("typing into a parent that stores a number: a typed '.' becomes the decimal char", () => {
+  const input = renderWithState(12);
+  press(input, ".");
+  press(input, "5");
+  assert.equal(input.value, "12,5");
+});
+
+test("typing goes through the filter: digits pass, letters are rejected", () => {
+  const { input } = render({ locale: "sv-SE", defaultValue: 12 });
+  press(input, "3");
+  assert.equal(input.value, "123");
+  press(input, "a");
+  assert.equal(input.value, "123");
+});

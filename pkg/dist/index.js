@@ -163,7 +163,7 @@ var GroupedNumberInput = forwardRef(function GroupedNumberInput2({
       const type = native.inputType ?? "insertText";
       if (!type.startsWith("insert")) return;
       const el = e.currentTarget;
-      let data = native.data ?? "";
+      let data = e.data ?? native.data ?? "";
       e.preventDefault();
       if (type === "insertFromPaste" || type === "insertFromDrop" || data.length > 1) {
         const cleaned = cleanNumberString(data, decimal);

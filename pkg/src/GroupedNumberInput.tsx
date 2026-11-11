@@ -171,7 +171,9 @@ export const GroupedNumberInput = forwardRef<
       const type = native.inputType ?? "insertText";
       if (!type.startsWith("insert")) return; // deletions etc: always fine
       const el = e.currentTarget;
-      let data = native.data ?? "";
+      // React builds onBeforeInput from textInput or keypress depending on the
+      // browser; only its own event carries the text in both cases.
+      let data = (e as unknown as { data?: string }).data ?? native.data ?? "";
       e.preventDefault();
       if (type === "insertFromPaste" || type === "insertFromDrop" || data.length > 1) {
         const cleaned = cleanNumberString(data, decimal);

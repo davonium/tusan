@@ -185,7 +185,7 @@ var GroupedNumberInput = (0, import_react.forwardRef)(function GroupedNumberInpu
       const type = native.inputType ?? "insertText";
       if (!type.startsWith("insert")) return;
       const el = e.currentTarget;
-      let data = native.data ?? "";
+      let data = e.data ?? native.data ?? "";
       e.preventDefault();
       if (type === "insertFromPaste" || type === "insertFromDrop" || data.length > 1) {
         const cleaned = cleanNumberString(data, decimal);
