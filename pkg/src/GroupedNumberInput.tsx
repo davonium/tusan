@@ -2,7 +2,12 @@ import React, {
   forwardRef,
   type CSSProperties,
   useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
   useMemo,
+  useRef,
+  useState,
   type InputHTMLAttributes,
 } from "react";
 import { forceReshape } from "./domUtils";
@@ -11,6 +16,8 @@ import {
   featureSettingsFor,
   getLocaleNumberInfo,
   parseRaw,
+  rawShowsValue,
+  toRaw,
   type SeparatorStyle,
 } from "./utils";
 
@@ -34,6 +41,15 @@ export interface GroupedNumberInputProps
   locale?: string;
   /** Override the font-rendered separator style (normally derived from locale). */
   separatorStyle?: SeparatorStyle;
+  /**
+   * Makes the field controlled. "." in a number or string is shown as the
+   * locale's decimal char. A number only has to match what is typed
+   * numerically, so "12," survives a parent that stores 12; a string has to
+   * match exactly. `null` clears the field. Leave undefined for an
+   * uncontrolled field. The parent has to update in `onValueChange` itself:
+   * a value applied later snaps the field back in between.
+   */
+  value?: string | number | null;
   defaultValue?: string | number;
   /** Called on every change with the raw string and parsed number. */
   onValueChange?: (value: GroupedNumberInputValue) => void;
@@ -47,6 +63,10 @@ export interface GroupedNumberInputProps
    */
   fontFamily?: string;
 }
+
+// useLayoutEffect warns during server rendering in React 17 and 18.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** Insert text at the caret, preserving the browser's native undo stack. */
 function insertText(el: HTMLInputElement, text: string) {
@@ -67,6 +87,7 @@ export const GroupedNumberInput = forwardRef<
   {
     locale,
     separatorStyle,
+    value,
     defaultValue = "",
     onValueChange,
     maxDecimals = null,
@@ -107,6 +128,26 @@ export const GroupedNumberInput = forwardRef<
     return new RegExp(`^${allowNegative ? "-?" : ""}\\d*${frac}$`);
   }, [decimal, maxDecimals, allowNegative]);
 
+  // Only a controlled field keeps the value in state. An uncontrolled one
+  // leaves it in the DOM, so form.reset() and direct writes to el.value work.
+  const isControlled = value !== undefined;
+  const [raw, setRaw] = useState(() => toRaw(value, decimal));
+  if (isControlled && !rawShowsValue(raw, value, decimal)) {
+    setRaw(toRaw(value, decimal));
+  }
+
+  const innerRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => innerRef.current as HTMLInputElement, []);
+
+  // Blink can skip re-shaping when the value crosses into "grouping needed"
+  // (empty -> filled, 3 -> 4 digits, a parent rewriting or rejecting the
+  // value). The transitions are hard to enumerate, so every commit and every
+  // input gets a nudge: one synchronous reflow is negligible and can never
+  // miss a case.
+  useIsomorphicLayoutEffect(() => {
+    if (innerRef.current) forceReshape(innerRef.current);
+  });
+
   const emit = useCallback(
     (el: HTMLInputElement) => {
       onValueChange?.({ raw: el.value, floatValue: parseRaw(el.value, decimal) });
@@ -130,7 +171,9 @@ export const GroupedNumberInput = forwardRef<
       const type = native.inputType ?? "insertText";
       if (!type.startsWith("insert")) return; // deletions etc: always fine
       const el = e.currentTarget;
-      let data = native.data ?? "";
+      // React builds onBeforeInput from textInput or keypress depending on the
+      // browser; only its own event carries the text in both cases.
+      let data = (e as unknown as { data?: string }).data ?? native.data ?? "";
       e.preventDefault();
       if (type === "insertFromPaste" || type === "insertFromDrop" || data.length > 1) {
         const cleaned = cleanNumberString(data, decimal);
@@ -156,32 +199,29 @@ export const GroupedNumberInput = forwardRef<
     [decimal, tryInsert],
   );
 
-  // Blink kan hoppa över om-shaping när värdet går från "ingen
-  // gruppering behövs" till "gruppering behövs" (t.ex. tomt -> ifyllt
-  // eller 3 -> 4 siffror). Övergångarna är svåra att räkna upp
-  // uttömmande, så vi nudgar på varje input: en synkron reflow per
-  // tangenttryck är försumbar och kan aldrig missa ett fall.
-  const handleInput = useCallback(
-    (e: React.FormEvent<HTMLInputElement>) => {
-      const el = e.currentTarget;
-      forceReshape(el);
-      emit(el);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isControlled) setRaw(e.currentTarget.value);
+      else forceReshape(e.currentTarget);
+      emit(e.currentTarget);
     },
-    [emit],
+    [emit, isControlled],
   );
 
   return (
     <input
       {...rest}
-      ref={ref}
+      ref={innerRef}
       type="text"
       inputMode="decimal"
       autoComplete="off"
       spellCheck={false}
-      defaultValue={String(defaultValue).replace(".", decimal)}
+      {...(isControlled
+        ? { value: raw }
+        : { defaultValue: toRaw(defaultValue, decimal) })}
       onBeforeInput={handleBeforeInput}
       onPaste={handlePaste}
-      onInput={handleInput}
+      onChange={handleChange}
       style={{
         fontFamily,
         fontFeatureSettings: featureSettings,

@@ -32,6 +32,25 @@ import "tusan/roboto.css"; // 'Roboto Grouped' @font-face
 />
 ```
 
+Controlled, with the parent owning the number:
+
+```tsx
+<GroupedNumberInput
+  locale="sv-SE"
+  value={price}
+  onValueChange={({ floatValue }) => setPrice(floatValue)}
+/>
+```
+
+`value` is held numerically: `12,` stays while the parent stores `12`, so the
+user can keep typing. Two consequences:
+
+- Update the value inside `onValueChange` itself. A value applied later
+  (debounced, in a transition, from an async store) snaps the field back in
+  between.
+- Passing the same number again does not normalise the field — `12,0` stays
+  when the parent passes `12`. Pass a string, or change the `key`, to rewrite it.
+
 Renders `1 234 567,89` for sv-SE, `1,234,567.89` for en-US,
 `1'234'567.89` for de-CH — while the value stays `1234567,89` /
 `1234567.89`. If the font fails to load you see ungrouped digits;
@@ -55,6 +74,7 @@ your stack renders placeholders and any other characters seamlessly.
 |---|---|---|---|
 | `locale` | `string` | browser locale | decides decimal char **and** separator style |
 | `separatorStyle` | `"space" \| "comma" \| "period" \| "apostrophe"` | from locale | override the rendered style |
+| `value` | `string \| number \| null` | | controlled; `.` is shown as the locale's decimal char, see above |
 | `defaultValue` | `string \| number` | `""` | |
 | `onValueChange` | `({ raw, floatValue }) => void` | | `raw` is the exact string; persist it for >15 digits |
 | `maxDecimals` | `number \| null` | `null` | |

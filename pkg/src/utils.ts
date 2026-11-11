@@ -106,3 +106,42 @@ export function parseRaw(raw: string, decimal: string): number | null {
   const n = parseFloat(raw.replace(decimal, "."));
   return Number.isFinite(n) ? n : null;
 }
+
+/** A number as a plain decimal string: never exponent notation, never NaN. */
+function numberToPlain(n: number): string {
+  if (!Number.isFinite(n)) return "";
+  const s = String(n);
+  return /e/i.test(s)
+    ? n.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 })
+    : s;
+}
+
+/**
+ * The raw string a value is shown as: "." becomes the locale's decimal char,
+ * for a number and a string alike. A raw string from onValueChange holds "."
+ * only where "." is the decimal char, so it round-trips unchanged.
+ */
+export function toRaw(
+  value: string | number | null | undefined,
+  decimal: string,
+): string {
+  if (value == null) return "";
+  const plain = typeof value === "number" ? numberToPlain(value) : value;
+  return plain.replace(".", decimal);
+}
+
+/**
+ * Whether the raw string already shows a controlled `value`. A number only
+ * has to match numerically, so the field keeps "12," or "1,50" while the user
+ * is still typing instead of snapping back to "12" or "1,5". A non-finite
+ * number counts as empty. A string has to match exactly.
+ */
+export function rawShowsValue(
+  raw: string,
+  value: string | number | null,
+  decimal: string,
+): boolean {
+  if (typeof value === "string") return raw === toRaw(value, decimal);
+  const expected = value !== null && Number.isFinite(value) ? value : null;
+  return parseRaw(raw, decimal) === expected;
+}

@@ -2,7 +2,12 @@
 import {
   forwardRef,
   useCallback,
-  useMemo
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
 } from "react";
 
 // src/domUtils.ts
@@ -68,9 +73,25 @@ function parseRaw(raw, decimal) {
   const n = parseFloat(raw.replace(decimal, "."));
   return Number.isFinite(n) ? n : null;
 }
+function numberToPlain(n) {
+  if (!Number.isFinite(n)) return "";
+  const s = String(n);
+  return /e/i.test(s) ? n.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 }) : s;
+}
+function toRaw(value, decimal) {
+  if (value == null) return "";
+  const plain = typeof value === "number" ? numberToPlain(value) : value;
+  return plain.replace(".", decimal);
+}
+function rawShowsValue(raw, value, decimal) {
+  if (typeof value === "string") return raw === toRaw(value, decimal);
+  const expected = value !== null && Number.isFinite(value) ? value : null;
+  return parseRaw(raw, decimal) === expected;
+}
 
 // src/GroupedNumberInput.tsx
 import { jsx } from "react/jsx-runtime";
+var useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 function insertText(el, text) {
   el.focus();
   if (!document.execCommand?.("insertText", false, text)) {
@@ -83,6 +104,7 @@ function insertText(el, text) {
 var GroupedNumberInput = forwardRef(function GroupedNumberInput2({
   locale,
   separatorStyle,
+  value,
   defaultValue = "",
   onValueChange,
   maxDecimals = null,
@@ -110,6 +132,16 @@ var GroupedNumberInput = forwardRef(function GroupedNumberInput2({
     const frac = maxDecimals == null ? `(?:${d}\\d*)?` : maxDecimals === 0 ? "" : `(?:${d}\\d{0,${maxDecimals}})?`;
     return new RegExp(`^${allowNegative ? "-?" : ""}\\d*${frac}$`);
   }, [decimal, maxDecimals, allowNegative]);
+  const isControlled = value !== void 0;
+  const [raw, setRaw] = useState(() => toRaw(value, decimal));
+  if (isControlled && !rawShowsValue(raw, value, decimal)) {
+    setRaw(toRaw(value, decimal));
+  }
+  const innerRef = useRef(null);
+  useImperativeHandle(ref, () => innerRef.current, []);
+  useIsomorphicLayoutEffect(() => {
+    if (innerRef.current) forceReshape(innerRef.current);
+  });
   const emit = useCallback(
     (el) => {
       onValueChange?.({ raw: el.value, floatValue: parseRaw(el.value, decimal) });
@@ -131,7 +163,7 @@ var GroupedNumberInput = forwardRef(function GroupedNumberInput2({
       const type = native.inputType ?? "insertText";
       if (!type.startsWith("insert")) return;
       const el = e.currentTarget;
-      let data = native.data ?? "";
+      let data = e.data ?? native.data ?? "";
       e.preventDefault();
       if (type === "insertFromPaste" || type === "insertFromDrop" || data.length > 1) {
         const cleaned = cleanNumberString(data, decimal);
@@ -155,27 +187,27 @@ var GroupedNumberInput = forwardRef(function GroupedNumberInput2({
     },
     [decimal, tryInsert]
   );
-  const handleInput = useCallback(
+  const handleChange = useCallback(
     (e) => {
-      const el = e.currentTarget;
-      forceReshape(el);
-      emit(el);
+      if (isControlled) setRaw(e.currentTarget.value);
+      else forceReshape(e.currentTarget);
+      emit(e.currentTarget);
     },
-    [emit]
+    [emit, isControlled]
   );
   return /* @__PURE__ */ jsx(
     "input",
     {
       ...rest,
-      ref,
+      ref: innerRef,
       type: "text",
       inputMode: "decimal",
       autoComplete: "off",
       spellCheck: false,
-      defaultValue: String(defaultValue).replace(".", decimal),
+      ...isControlled ? { value: raw } : { defaultValue: toRaw(defaultValue, decimal) },
       onBeforeInput: handleBeforeInput,
       onPaste: handlePaste,
-      onInput: handleInput,
+      onChange: handleChange,
       style: {
         fontFamily,
         fontFeatureSettings: featureSettings,
